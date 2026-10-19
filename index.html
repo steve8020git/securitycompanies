@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>정보보안 종목 주가</title>
+<meta name="description" content="국내 정보보안 상장사 36개 종목의 주가, 시가총액, 전일·전주·전월·전분기 등락률을 한눈에 보는 시세판. 장중 1분마다 자동 갱신.">
+<meta property="og:title" content="정보보안 종목 주가">
+<meta property="og:description" content="국내 정보보안 상장사 36개 종목의 주가, 시가총액, 전일·전주·전월·전분기 등락률을 한눈에 보는 시세판. 장중 1분마다 자동 갱신.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2317202b'/%3E%3Cpath d='M6 22l6-6 4 4 9-10' fill='none' stroke='%23ff6f66' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0}[hidden]{display:none!important}</style>
+<style>
+  /* 레이아웃: 한 장짜리 시세판. 제목·기준일 → 요약 한 줄 → 표 → 주석. 좁은 화면에서는 시총·매출·영업이익을 종목 아래 둘째 줄로 내려 옆으로 밀지 않고 본다 */
+  :root {
+    --paper: #f2f4f7;
+    --surface: #ffffff;
+    --head: #e4e8ee;
+    --ink: #17202b;
+    --ink-soft: #5a6677;
+    --line: #d8dde5;
+    --up: #d32f27;      /* 오름: 빨강 (한국 시세판 관례) */
+    --down: #1a56c4;    /* 내림: 파랑 */
+    --pin: #fdf3d7;     /* 고정된 1번 줄 */
+    --accent: #9a6200;
+    --font-text: "IBM Plex Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+    --font-num: "IBM Plex Mono", Consolas, "Malgun Gothic", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #10141a; --surface: #171c24; --head: #202733; --ink: #e7ebf1; --ink-soft: #96a2b3;
+      --line: #2a323e; --up: #ff6f66; --down: #74a9ff; --pin: #2c2614; --accent: #e3ad42;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #10141a; --surface: #171c24; --head: #202733; --ink: #e7ebf1; --ink-soft: #96a2b3;
+    --line: #2a323e; --up: #ff6f66; --down: #74a9ff; --pin: #2c2614; --accent: #e3ad42;
+    color-scheme: dark;
+  }
+
+  body { background: var(--paper); color: var(--ink); font-family: var(--font-text); font-size: 14px; line-height: 1.5; }
+  .page { max-width: 860px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 40px; display: flex; flex-direction: column; gap: 16px; }
+
+  .top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; }
+  h1 { margin: 0; font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.25; text-wrap: balance; }
+  .asof { margin: 4px 0 0; display: flex; align-items: center; gap: 8px; font-family: var(--font-num); font-size: 1rem; font-weight: 600; }
+  .chip { font-family: var(--font-text); font-size: 0.75rem; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-soft); background: var(--surface); }
+  .chip.live { color: var(--up); border-color: currentColor; }
+  .chip.live::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 5px; border-radius: 50%; background: currentColor; vertical-align: 1px; }
+
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .datenav { display: flex; align-items: stretch; }
+  button, input[type="date"] { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); height: 34px; padding: 0 12px; }
+  button { cursor: pointer; border-radius: 4px; font-weight: 500; }
+  button:hover:not(:disabled) { border-color: var(--ink-soft); }
+  button:disabled { color: var(--ink-soft); opacity: 0.5; cursor: default; }
+  .datenav button { padding: 0 10px; font-family: var(--font-num); }
+  .datenav button:first-child { border-radius: 4px 0 0 4px; border-right: 0; }
+  .datenav button:last-child { border-radius: 0 4px 4px 0; border-left: 0; }
+  .datenav input { font-family: var(--font-num); font-size: 0.86rem; padding: 0 8px; border-radius: 0; min-width: 0; }
+  button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .status { margin: 0; color: var(--ink-soft); font-size: 0.86rem; }
+  .status.warn { color: var(--accent); font-weight: 500; }
+
+  .summary { margin: 0; display: flex; flex-wrap: wrap; gap: 6px 28px; padding-block: 10px; border-block: 1px solid var(--line); }
+  .summary div { display: flex; align-items: baseline; gap: 8px; }
+  .summary dt { color: var(--ink-soft); font-size: 0.86rem; }
+  .summary dd { margin: 0; font-weight: 600; }
+  .summary small { font-weight: 400; color: var(--ink-soft); font-size: 0.86rem; }
+
+  .board { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; overflow-x: auto; min-width: 0; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; text-align: right; }
+  tbody tr.last td { border-bottom: 0; }
+  thead th { background: var(--head); font-size: 0.82rem; font-weight: 600; line-height: 1.3; vertical-align: middle; border-bottom: 1px solid var(--ink-soft); }
+  td { font-family: var(--font-num); font-size: 0.9rem; background: var(--surface); }
+  th.no, td.no { text-align: center; padding-inline: 8px 4px; width: 34px; color: var(--ink-soft); }
+  th.name, td.name { text-align: left; }
+  td.name { font-family: var(--font-text); font-size: 0.95rem; font-weight: 500; }
+  td.name a { color: inherit; text-decoration: none; }
+  td.name a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  td.pct { font-weight: 600; }
+  td.up { color: var(--up); }
+  td.down { color: var(--down); }
+  td.none { color: var(--ink-soft); font-weight: 400; }
+  td.halt { font-family: var(--font-text); color: var(--ink-soft); font-size: 0.86rem; }
+  .arrow { font-family: var(--font-text); font-size: 0.72em; margin-right: 3px; vertical-align: 1px; }
+  tr.pinned td { background: var(--pin); }
+  tr.pinned td.name { font-weight: 700; }
+  tr.pinned td.no { color: var(--accent); font-weight: 600; }
+  tr.more { display: none; }
+  td.wait { text-align: center; font-family: var(--font-text); color: var(--ink-soft); padding-block: 28px; }
+
+  .notes { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; color: var(--ink-soft); font-size: 0.82rem; }
+  .notes li::before { content: "※ "; }
+
+  @media (max-width: 620px) {
+    .page { padding-block: 18px 32px; gap: 12px; }
+    h1 { font-size: 1.3rem; }
+    th, td { padding: 7px 3px; }
+    td { font-size: 0.76rem; letter-spacing: -0.02em; }
+    .arrow { margin-right: 1px; }
+    th:last-child, td:last-child { padding-right: 6px; }
+    thead th { font-size: 0.75rem; }
+    .col-cap, .col-fin { display: none; }
+    th.no, td.no { width: 20px; padding-inline: 6px 2px; }
+    td.name { font-size: 0.86rem; white-space: normal; line-height: 1.3; }
+    /* 둘째 줄: 시총 · 매출 · 영업이익 */
+    tr.more { display: table-row; }
+    tr.main td { border-bottom: 0; padding-bottom: 1px; }
+    tr.more td { padding-top: 0; text-align: left; white-space: normal; font-family: var(--font-text); font-size: 0.74rem; color: var(--ink-soft); }
+    tr.more b { font-family: var(--font-num); font-weight: 500; color: var(--ink); margin-left: 3px; }
+    tr.more span + span { margin-left: 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <div>
+      <h1>정보보안 종목 주가</h1>
+      <p class="asof"><span id="asofDate">&nbsp;</span><span class="chip" id="asofChip" hidden></span></p>
+    </div>
+    <div class="controls">
+      <div class="datenav" role="group" aria-label="기준일 고르기">
+        <button type="button" id="prevDay" aria-label="이전 거래일" title="이전 거래일" disabled>&lt;</button>
+        <input type="date" id="pickDay" aria-label="기준일" title="기준일을 고르면 그날 종가 기준으로 다시 정렬합니다">
+        <button type="button" id="nextDay" aria-label="다음 거래일" title="다음 거래일" disabled>&gt;</button>
+      </div>
+      <button type="button" id="latest" disabled>최신</button>
+      <button type="button" id="refresh">새로고침</button>
+    </div>
+  </header>
+
+  <p class="status" id="status" role="status">시세를 불러오는 중입니다…</p>
+
+  <dl class="summary" id="summary" hidden>
+    <div><dt>라온시큐어 시총 순위</dt><dd id="sumRank"></dd></div>
+    <div><dt>전주 대비</dt><dd id="sumMoves"></dd></div>
+    <div><dt>시총 합계</dt><dd id="sumCap"></dd></div>
+  </dl>
+
+  <div class="board">
+    <table>
+      <thead>
+        <tr>
+          <th class="no" scope="col">번호</th>
+          <th class="name" scope="col">종목</th>
+          <th class="col-cap" scope="col">시총<br>(억원)</th>
+          <th scope="col" id="colNow">주가<br>(원)</th>
+          <th scope="col" id="colD">전일<br>(%)</th>
+          <th scope="col" id="colW">전주<br>(%)</th>
+          <th scope="col" id="colM">전월<br>(%)</th>
+          <th scope="col" id="colQ">전분기<br>(%)</th>
+          <th class="col-fin" scope="col" id="colSales">(전년)매출<br>(억원)</th>
+          <th class="col-fin" scope="col" id="colOp">(전년)영업이익<br>(억원)</th>
+        </tr>
+      </thead>
+      <tbody id="rows"><tr><td class="wait" colspan="10">시세를 불러오는 중입니다…</td></tr></tbody>
+    </table>
+  </div>
+
+  <ul class="notes" id="notes"></ul>
+</div>
+
+<script type="application/json" id="meta">{"pinned":"042510","stocks":[{"name":"라온시큐어","code":"042510","shares":11105828,"haltFrom":null,"fin":{"year":"2025","sales":638,"op":28}},{"name":"안랩","code":"053800","shares":11126506,"haltFrom":null,"fin":{"year":"2025","sales":2677,"op":333}},{"name":"엑스게이트","code":"356680","shares":28543492,"haltFrom":null,"fin":{"year":"2025","sales":481,"op":38}},{"name":"아이씨티케이","code":"456010","shares":14634503,"haltFrom":null,"fin":{"year":"2025","sales":40,"op":-89}},{"name":"드림시큐리티","code":"203650","shares":101704484,"haltFrom":null,"fin":{"year":"2025","sales":3189,"op":225}},{"name":"지니언스","code":"263860","shares":9079600,"haltFrom":null,"fin":{"year":"2025","sales":484,"op":70}},{"name":"한국정보인증","code":"053300","shares":39565146,"haltFrom":null,"fin":{"year":"2025","sales":1385,"op":271}},{"name":"에스투더블유","code":"488280","shares":10825486,"haltFrom":null,"fin":{"year":"2025","sales":101,"op":-56}},{"name":"아톤","code":"158430","shares":24482092,"haltFrom":null,"fin":{"year":"2025","sales":676,"op":104}},{"name":"인포바인","code":"115310","shares":14831549,"haltFrom":null,"fin":{"year":"2025","sales":287,"op":65}},{"name":"한컴위드","code":"054920","shares":28217081,"haltFrom":null,"fin":{"year":"2025","sales":7712,"op":61}},{"name":"윈스테크넷","code":"136540","shares":12279746,"haltFrom":null,"fin":{"year":"2025","sales":986,"op":212}},{"name":"샌즈랩","code":"411080","shares":15267638,"haltFrom":null,"fin":{"year":"2025","sales":116,"op":-18}},{"name":"이니텍","code":"053350","shares":22021065,"haltFrom":null,"fin":{"year":"2025","sales":328,"op":-24}},{"name":"네오리진","code":"094860","shares":53110014,"haltFrom":null,"fin":{"year":"2025","sales":310,"op":-46}},{"name":"이글루","code":"067920","shares":10996119,"haltFrom":null,"fin":{"year":"2025","sales":1433,"op":160}},{"name":"아우토크립트","code":"331740","shares":9750991,"haltFrom":null,"fin":{"year":"2025","sales":255,"op":-135}},{"name":"케이사인","code":"192250","shares":7067125,"haltFrom":null,"fin":{"year":"2025","sales":484,"op":29}},{"name":"오픈베이스","code":"049480","shares":31422383,"haltFrom":null,"fin":{"year":"2025","sales":2331,"op":79}},{"name":"한국전자인증","code":"041460","shares":18430109,"haltFrom":null,"fin":{"year":"2025","sales":367,"op":67}},{"name":"수산아이앤티","code":"050960","shares":6751000,"haltFrom":null,"fin":{"year":"2025","sales":307,"op":51}},{"name":"파이오링크","code":"170790","shares":6397335,"haltFrom":null,"fin":{"year":"2025","sales":656,"op":54}},{"name":"파수AI","code":"150900","shares":11703922,"haltFrom":null,"fin":{"year":"2025","sales":467,"op":25}},{"name":"아이티센피엔에스","code":"232830","shares":16533726,"haltFrom":null,"fin":{"year":"2025","sales":2696,"op":-3}},{"name":"SGA솔루션즈","code":"184230","shares":18833952,"haltFrom":null,"fin":{"year":"2025","sales":616,"op":148}},{"name":"소프트캠프","code":"258790","shares":4998256,"haltFrom":null,"fin":{"year":"2025","sales":257,"op":30}},{"name":"모니터랩","code":"434480","shares":12310300,"haltFrom":null,"fin":{"year":"2025","sales":192,"op":9}},{"name":"한싹","code":"430690","shares":10895304,"haltFrom":null,"fin":{"year":"2025","sales":263,"op":-19}},{"name":"플랜티넷","code":"075130","shares":16122320,"haltFrom":null,"fin":{"year":"2025","sales":456,"op":33}},{"name":"시큐브","code":"131090","shares":7658221,"haltFrom":null,"fin":{"year":"2025","sales":134,"op":43}},{"name":"싸이버원","code":"356890","shares":11953825,"haltFrom":null,"fin":{"year":"2025","sales":337,"op":4}},{"name":"휴네시온","code":"290270","shares":9607672,"haltFrom":null,"fin":{"year":"2025","sales":377,"op":48}},{"name":"지란지교시큐리티","code":"208350","shares":8101570,"haltFrom":null,"fin":{"year":"2025","sales":389,"op":25}},{"name":"벨로크","code":"424760","shares":10098368,"haltFrom":null,"fin":{"year":"2025","sales":354,"op":9}},{"name":"에스에스알","code":"275630","shares":5253808,"haltFrom":null,"fin":{"year":"2025","sales":130,"op":3}},{"name":"시큐레터","code":"418250","shares":7271605,"haltFrom":"20250909","fin":{"year":"2025","sales":12,"op":-43}}]}</script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
+  const DASH = '—';
+  const META = JSON.parse($('meta').textContent); // 종목 이름·상장주식수·실적 (시세는 API에서)
+  const API_URL = 'https://kr-stock-prices.benepass-mcp-cloudflare.workers.dev/v1/prices?codes=' + META.stocks.map((s) => s.code).join(',');
+  const FETCH_TIMEOUT = 25_000;  // 캐시 안 된 36종목 요청은 5초 남짓 걸린다
+  const POLL_OPEN = 60_000;      // 장중
+  const POLL_CLOSED = 300_000;   // 장 마감·휴장
+  const RETRY = 60_000;          // 실패·저장본(stale)일 때
+  let data = null;      // 마지막으로 성공한 응답을 화면용으로 바꾼 것
+  let picked = null;    // 고른 기준일(YYYYMMDD). null이면 가장 최근 거래일을 따라간다
+  let busy = false;     // 요청 중
+  let lastError = null; // 마지막 요청의 실패 이유(성공하면 null)
+  let timer = null;
+  let lastStart = 0;
+
+  // ── 날짜: YYYYMMDD를 직접 나눠 쓴다(브라우저 시간대 영향 없음) ──
+  const toDate = (s) => new Date(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8));
+  const toYmd = (d) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  const md = (s) => `${s.slice(4, 6)}/${s.slice(6, 8)}`;
+  const iso = (s) => `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+  const withDay = (s) => `${iso(s)}(${WEEK[toDate(s).getDay()]})`;
+  const shiftDays = (s, n) => { const d = toDate(s); d.setDate(d.getDate() + n); return toYmd(d); };
+  // n개월 전 같은 날(그 달에 없는 날이면 말일)
+  const shiftMonths = (s, n) => {
+    const d = toDate(s);
+    const day = d.getDate();
+    d.setDate(1);
+    d.setMonth(d.getMonth() + n);
+    d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
+    return toYmd(d);
+  };
+  const lastOnOrBefore = (dates, t) => { for (let j = dates.length - 1; j >= 0; j--) if (dates[j] <= t) return j; return -1; };
+  // 받아 둔 기간이 t까지 닿지 않으면 -1
+  const firstAfter = (dates, t) => (dates[0] > t ? -1 : dates.findIndex((d) => d > t));
+
+  // 시각은 늘 한국 시각으로 보여 준다
+  const kst = (isoTime) => {
+    const t = Date.parse(isoTime);
+    if (!Number.isFinite(t)) return null;
+    const k = new Date(t + 9 * 3600e3);
+    const p = (n) => String(n).padStart(2, '0');
+    return { md: `${k.getUTCMonth() + 1}/${k.getUTCDate()}`, hm: `${p(k.getUTCHours())}:${p(k.getUTCMinutes())}` };
+  };
+
+  // 비교 기준일: 전일은 바로 앞 거래일, 전주는 7일 전(쉬는 날이면 그 앞 거래일), 전월·전분기는 1개월·3개월 전 날짜의 다음 거래일
+  function refIndexes(dates, i) {
+    const D = dates[i];
+    return { d: i - 1, w: lastOnOrBefore(dates, shiftDays(D, -7)), m: firstAfter(dates, shiftMonths(D, -1)), q: firstAfter(dates, shiftMonths(D, -3)) };
+  }
+
+  // ── API 응답 → 화면 자료 ──
+  const price = (v) => (Number.isInteger(v) && v > 0 ? v : null); // null·0·이상값은 값 없음으로
+  function adapt(api) {
+    if (!api || !Array.isArray(api.dates) || !api.dates.length || !api.closes) throw new Error('응답 형식이 올바르지 않습니다');
+    const dates = api.dates.map(String);
+    const stocks = META.stocks.map((s) => {
+      const arr = api.closes[s.code];
+      const closes = Array.isArray(arr) && arr.length === dates.length ? arr.map(price) : dates.map(() => null);
+      return { ...s, closes };
+    });
+    const nameOf = Object.fromEntries(META.stocks.map((s) => [s.code, s.name]));
+    return {
+      dates, stocks, pinned: META.pinned,
+      fetchedAt: api.fetchedAt,
+      open: !!(api.market && api.market.open),
+      tradedAt: api.market && api.market.tradedAt,
+      failed: (api.failed || []).map((c) => nameOf[c] || c),
+      stale: !!api.stale,
+    };
+  }
+
+  // ── 계산: 기준일 하나에 대한 표 ──
+  function compute(i) {
+    const { dates, stocks, pinned } = data;
+    const D = dates[i];
+    const ref = refIndexes(dates, i);
+    const pct = (now, base) => (now != null && base ? Math.round((now / base - 1) * 1000) / 10 : null);
+    const rows = stocks.map((s) => {
+      const halted = !!s.haltFrom && D >= s.haltFrom;
+      const p = s.closes[i];
+      const at = (j) => (j >= 0 ? s.closes[j] : null);
+      const ok = !halted && p != null;
+      return {
+        name: s.name, code: s.code, halted, pinned: s.code === pinned,
+        price: ok ? p : null,
+        cap: ok && s.shares ? p * s.shares : null,
+        fin: s.fin || null,
+        weekCap: ok && s.shares && at(ref.w) != null ? at(ref.w) * s.shares : null,
+        d: ok ? pct(p, at(ref.d)) : null,
+        w: ok ? pct(p, at(ref.w)) : null,
+        m: ok ? pct(p, at(ref.m)) : null,
+        q: ok ? pct(p, at(ref.q)) : null,
+      };
+    });
+    // 1번은 고정, 2번부터 시가총액 큰 순서. 값이 없는 종목과 거래정지는 맨 뒤.
+    const order = (r) => (r.pinned ? 0 : r.cap != null ? 1 : r.halted ? 3 : 2);
+    rows.sort((a, b) => order(a) - order(b) || (b.cap ?? 0) - (a.cap ?? 0));
+    return { D, ref, rows };
+  }
+
+  // ── 그리기 ──
+  const won = (v) => Math.round(v).toLocaleString('ko-KR');
+  function cell(tr, text, cls) {
+    const td = document.createElement('td');
+    if (cls) td.className = cls;
+    td.textContent = text;
+    tr.appendChild(td);
+    return td;
+  }
+  // 좁은 화면 둘째 줄의 "이름 값" 한 쌍
+  function pair(td, label, value) {
+    const span = document.createElement('span');
+    const b = document.createElement('b');
+    b.textContent = value;
+    span.append(label, b);
+    td.appendChild(span);
+  }
+  function pctCell(tr, v) {
+    if (v == null) return cell(tr, DASH, 'pct none');
+    if (v === 0) return cell(tr, '0.0', 'pct none');
+    const td = cell(tr, '', 'pct ' + (v > 0 ? 'up' : 'down'));
+    const arrow = document.createElement('span');
+    arrow.className = 'arrow';
+    arrow.textContent = v > 0 ? '▲' : '▼';
+    td.append(arrow, Math.abs(v).toFixed(1));
+    td.setAttribute('aria-label', (v > 0 ? '상승 ' : '하락 ') + Math.abs(v).toFixed(1) + '%');
+    return td;
+  }
+  const capText = (won1) => {
+    const eok = Math.round(won1 / 1e8);
+    const jo = Math.floor(eok / 10000);
+    return (jo ? `${jo}조 ` : '') + `${(eok % 10000).toLocaleString('ko-KR')}억원`;
+  };
+
+  function render() {
+    renderStatus();
+    if (!data) return;
+    const { dates } = data;
+    const lastIdx = dates.length - 1;
+    // 전분기 비교가 되는 가장 이른 날
+    const minIdx = Math.max(0, dates.findIndex((d) => firstAfter(dates, shiftMonths(d, -3)) >= 0));
+    let i = picked ? lastOnOrBefore(dates, picked) : lastIdx;
+    if (i < minIdx) i = minIdx;
+    const isLatest = i === lastIdx;
+    const liveNow = isLatest && data.open && !data.stale;
+    const { D, ref, rows } = compute(i);
+
+    $('asofDate').textContent = withDay(D);
+    const chip = $('asofChip');
+    chip.hidden = false;
+    chip.className = 'chip' + (liveNow ? ' live' : '');
+    const traded = kst(data.tradedAt);
+    chip.textContent = isLatest && data.stale ? '저장본' : liveNow ? `장중${traded ? ' ' + traded.hm : ''}` : '종가';
+
+    const pick = $('pickDay');
+    pick.min = iso(dates[minIdx]);
+    pick.max = iso(dates[lastIdx]);
+    pick.value = iso(D);
+    $('prevDay').disabled = i <= minIdx;
+    $('nextDay').disabled = isLatest;
+    $('latest').disabled = isLatest;
+    $('prevDay').onclick = () => { picked = dates[i - 1]; render(); };
+    $('nextDay').onclick = () => { picked = i + 1 >= lastIdx ? null : dates[i + 1]; render(); };
+
+    $('colNow').title = `${md(D)} ${liveNow ? '현재가' : '종가'}`;
+    const refNote = (j) => (j >= 0 ? `${md(dates[j])} 종가와 비교` : '비교할 자료 없음');
+    $('colD').title = refNote(ref.d);
+    $('colW').title = refNote(ref.w);
+    $('colM').title = refNote(ref.m);
+    $('colQ').title = refNote(ref.q);
+
+    const body = $('rows');
+    body.textContent = '';
+    const eok = (v) => (v != null ? v.toLocaleString('ko-KR') : DASH);
+    rows.forEach((r, n) => {
+      const tr = document.createElement('tr');
+      const last = n === rows.length - 1 ? ' last' : '';
+      tr.className = 'main' + (r.pinned ? ' pinned' : '') + last;
+      cell(tr, String(n + 1), 'no');
+      const name = cell(tr, '', 'name');
+      const a = document.createElement('a');
+      a.href = `https://m.stock.naver.com/domestic/stock/${r.code}/total`;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.title = '네이버 증권에서 보기';
+      a.textContent = r.name;
+      name.appendChild(a);
+      const capNum = r.cap != null ? won(r.cap / 1e8) : DASH;
+      const sales = eok(r.fin?.sales);
+      const op = eok(r.fin?.op);
+      if (r.halted) {
+        cell(tr, '거래정지', 'halt col-cap');
+        for (let k = 0; k < 5; k++) cell(tr, DASH, 'none');
+      } else {
+        cell(tr, capNum, 'col-cap' + (r.cap != null ? '' : ' none'));
+        cell(tr, r.price != null ? won(r.price) : DASH, r.price != null ? '' : 'none');
+        pctCell(tr, r.d);
+        pctCell(tr, r.w);
+        pctCell(tr, r.m);
+        pctCell(tr, r.q);
+      }
+      cell(tr, sales, 'col-fin' + (sales === DASH ? ' none' : ''));
+      cell(tr, op, 'col-fin' + (op === DASH ? ' none' : ''));
+      body.appendChild(tr);
+
+      // 좁은 화면에서만 보이는 둘째 줄
+      const more = document.createElement('tr');
+      more.className = 'more' + (r.pinned ? ' pinned' : '') + last;
+      cell(more, '', 'no');
+      const td = cell(more, '', '');
+      td.colSpan = 6;
+      pair(td, '시총', r.halted ? '거래정지' : capNum);
+      pair(td, '매출', sales);
+      pair(td, '영업이익', op);
+      body.appendChild(more);
+    });
+
+    // 요약
+    const priced = rows.filter((r) => r.cap != null);
+    const me = rows.find((r) => r.pinned);
+    const rankOf = (key) => (me && me[key] != null ? priced.filter((r) => r[key] != null && r[key] > me[key]).length + 1 : null);
+    const rank = rankOf('cap');
+    const before = rankOf('weekCap');
+    const rankEl = $('sumRank');
+    rankEl.textContent = rank ? `${rank}위 ` : `${DASH} `;
+    const small = document.createElement('small');
+    small.textContent = rank ? `/ ${priced.length}종목` + (before ? (before === rank ? ' · 전주와 같음' : ` · 전주 ${before}위`) : '') : '';
+    rankEl.appendChild(small);
+    const ups = priced.filter((r) => r.w > 0).length;
+    const downs = priced.filter((r) => r.w < 0).length;
+    const flats = priced.filter((r) => r.w === 0).length;
+    $('sumMoves').textContent = `상승 ${ups} · 하락 ${downs}` + (flats ? ` · 보합 ${flats}` : '');
+    $('sumCap').textContent = capText(priced.reduce((sum, r) => sum + r.cap, 0));
+    $('summary').hidden = false;
+
+    // 주석
+    const d = toDate(D);
+    const dayText = `${d.getMonth() + 1}월 ${d.getDate()}일(${WEEK[d.getDay()]})`;
+    const refDay = (j) => (j >= 0 ? md(dates[j]) : DASH);
+    const notes = [
+      liveNow ? `${dayText} 장중 현재가 기준입니다. 장이 끝나면 종가로 바뀝니다.` : `${dayText} 종가 기준입니다.`,
+      '시가총액(억원)은 기준일 주가 × 최신 상장주식수로 계산한 추정치입니다.',
+      `전일 대비는 ${refDay(ref.d)}, 전주 대비는 ${refDay(ref.w)}, 전월 대비는 ${refDay(ref.m)}, 전분기 대비는 ${refDay(ref.q)} 종가와 비교했습니다. 비교할 값이 없으면 ${DASH}로 표시합니다.`,
+    ];
+    // 매출·영업이익: 대부분의 종목이 가리키는 연도를 적고, 다른 연도인 종목은 따로 알린다
+    const years = {};
+    for (const r of rows) if (r.fin) years[r.fin.year] = (years[r.fin.year] || 0) + 1;
+    const year = Object.keys(years).sort((a, b) => years[b] - years[a])[0];
+    if (year) {
+      const others = rows.filter((r) => r.fin && r.fin.year !== year).map((r) => `${r.name}(${r.fin.year}년)`);
+      notes.push(`매출·영업이익은 ${year}년 연간 실적(억원)입니다.` + (others.length ? ` 단, ${others.join(', ')}.` : ''));
+      $('colSales').title = $('colOp').title = `${year}년 연간 실적`;
+    }
+    const halted = rows.filter((r) => r.halted).map((r) => r.name);
+    if (halted.length) notes.push(`${halted.join(', ')}${halted.length > 1 ? '는 모두' : '는'} 거래정지 중입니다.`);
+    notes.push(`1번은 ${me ? me.name : '첫 종목'} 고정, 2번부터 시가총액 규모순으로 정렬했습니다. 시세: kr-stock-prices API.`);
+    const list = $('notes');
+    list.textContent = '';
+    for (const text of notes) { const li = document.createElement('li'); li.textContent = text; list.appendChild(li); }
+  }
+
+  // 상태 줄: 받은 시각, 경고, 오류
+  function renderStatus() {
+    const status = $('status');
+    const btn = $('refresh');
+    btn.disabled = busy;
+    btn.textContent = busy ? '받는 중…' : '새로고침';
+    status.className = 'status';
+    const again = waitForUser ? '' : ' 1분 뒤 다시 시도합니다.';
+    if (!data) {
+      if (lastError) {
+        status.className = 'status warn';
+        status.textContent = waitForUser ? lastError : `시세를 가져오지 못했습니다 (${lastError}).${again}`;
+        $('summary').hidden = true;
+        $('asofChip').hidden = true;
+        $('asofDate').textContent = ' ';
+        $('notes').textContent = '';
+        $('rows').innerHTML = '';
+        const tr = document.createElement('tr');
+        const td = cell(tr, waitForUser ? lastError : `시세를 가져오지 못했습니다: ${lastError}`, 'wait');
+        td.colSpan = 10;
+        $('rows').appendChild(tr);
+      } else {
+        status.textContent = '시세를 불러오는 중입니다…';
+      }
+      return;
+    }
+    const got = kst(data.fetchedAt);
+    const when = got ? `${got.md} ${got.hm}` : '';
+    const parts = [];
+    let warn = false;
+    if (lastError) {
+      warn = true;
+      parts.push(`최신 시세를 받지 못해 ${when} 값을 그대로 보여 드립니다 (${lastError}).${again}`);
+    } else if (data.stale) {
+      warn = true;
+      parts.push(`시세 서버가 새 값을 받지 못해 ${when}에 저장된 값을 보여 드립니다. 1분 뒤 다시 시도합니다.`);
+    } else {
+      parts.push(`${when}(한국 시각)에 받은 시세입니다.` + (data.open ? ' 장중에는 1분마다 새로 받습니다.' : ' 장이 열리면 자동으로 새로 받습니다.'));
+    }
+    if (!lastError && data.failed.length) {
+      warn = true;
+      parts.push(`${data.failed.join(', ')}은(는) 최신 시세를 받지 못해 저장된 값으로 표시합니다.`);
+    }
+    if (busy) parts.push('새 시세를 받는 중…');
+    if (warn) status.className = 'status warn';
+    status.textContent = parts.join(' ');
+  }
+
+  // ── 불러오기와 주기적 갱신 ──
+  function schedule(ms) {
+    clearTimeout(timer);
+    timer = setTimeout(() => { if (!document.hidden) refresh(); }, ms);
+  }
+  const waitForUser = false; // 공개본에는 사용자 조치가 필요한 오류가 없다
+  function nextDelay() {
+    if (lastError || !data || data.stale) return RETRY;
+    return data.open ? POLL_OPEN : POLL_CLOSED;
+  }
+  async function refresh() {
+    if (busy) return;             // 요청이 겹치지 않게
+    busy = true;
+    lastStart = Date.now();
+    clearTimeout(timer);
+    renderStatus();
+    const ctl = new AbortController();
+    const cut = setTimeout(() => ctl.abort(), FETCH_TIMEOUT);
+    try {
+      const res = await fetch(API_URL, { cache: 'no-store', signal: ctl.signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      data = adapt(await res.json()); // 성공했을 때만 바꾼다
+      lastError = null;
+    } catch (e) {
+      lastError = e && e.name === 'AbortError' ? `${FETCH_TIMEOUT / 1000}초 안에 응답이 없었습니다` : `${(e && e.name) || 'Error'}: ${(e && e.message) || '접속 실패'}`;
+      console.error('kr-stock-prices fetch failed', e);
+    } finally {
+      clearTimeout(cut);
+      busy = false;
+      render();
+      if (!document.hidden) schedule(nextDelay());
+    }
+  }
+
+  // 화면이 다시 보이거나 창이 돌아오면 바로 새로 받는다(겹친 신호는 5초 안에 한 번만)
+  const wake = () => { if (!document.hidden && Date.now() - lastStart > 5000) refresh(); };
+  const onVisibility = () => { if (document.hidden) clearTimeout(timer); else wake(); };
+  document.addEventListener('visibilitychange', onVisibility);
+  window.addEventListener('focus', wake);
+  window.addEventListener('pagehide', () => {
+    clearTimeout(timer);
+    document.removeEventListener('visibilitychange', onVisibility);
+    window.removeEventListener('focus', wake);
+  });
+
+  $('pickDay').addEventListener('change', (e) => {
+    if (!data || !e.target.value) return;
+    const v = e.target.value.replace(/-/g, '');
+    picked = v >= data.dates[data.dates.length - 1] ? null : v; // 쉬는 날을 고르면 그 앞 거래일로
+    render();
+  });
+  $('latest').addEventListener('click', () => { picked = null; render(); });
+  $('refresh').addEventListener('click', refresh);
+
+  refresh();
+})();
+</script>
+</body>
+</html>
